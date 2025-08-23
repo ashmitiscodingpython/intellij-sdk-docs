@@ -42,6 +42,7 @@ Deprecated elements are omitted in the list below.
 
 - [`<idea-plugin>`](#idea-plugin)
   - [`<id>`](#idea-plugin__id)
+  - [`<module>`](#idea-plugin__module)
   - [`<name>`](#idea-plugin__name)
   - [`<version>`](#idea-plugin__version)
   - [`<product-descriptor>`](#idea-plugin__product-descriptor)
@@ -50,11 +51,19 @@ Deprecated elements are omitted in the list below.
   - [`<description>`](#idea-plugin__description)
   - [`<change-notes>`](#idea-plugin__change-notes)
   - [`<depends>`](#idea-plugin__depends)
+  - [`<dependencies>`](#idea-plugin__dependencies)
+    - [`<module>`](#idea-plugin__dependencies__module)
+    - [`<plugin>`](#idea-plugin__dependencies__plugin)
   - [`<incompatible-with>`](#idea-plugin__incompatible-with)
+  - [`<content>`](#idea-plugin__content)
+    - [`<module>`](#idea-plugin__content__module)
   - [`<extensions>`](#idea-plugin__extensions)
+    - [`<*>`](#idea-plugin__extensions__*)
   - [`<extensionPoints>`](#idea-plugin__extensionPoints)
     - [`<extensionPoint>`](#idea-plugin__extensionPoints__extensionPoint)
       - [`<with>`](#idea-plugin__extensionPoints__extensionPoint__with)
+    - [`<xi:include>`](#idea-plugin__extensionPoints__xi:include)
+      - [`<xi:fallback>`](#idea-plugin__extensionPoints__xi:include__xi:fallback)
   - [`<resource-bundle>`](#idea-plugin__resource-bundle)
   - [`<actions>`](#idea-plugin__actions)
     - [`<action>`](#idea-plugin__actions__action)
@@ -84,6 +93,8 @@ Deprecated elements are omitted in the list below.
     - [`<listener>`](#idea-plugin__applicationListeners__listener)
   - [`<projectListeners>`](#idea-plugin__projectListeners)
     - [`<listener>`](#idea-plugin__applicationListeners__listener)
+  - [`<xi:include>`](#idea-plugin__xi:include)
+    - [`<xi:fallback>`](#idea-plugin__xi:include__xi:fallback)
 
 ## `idea-plugin`
 {#idea-plugin}
@@ -101,16 +112,31 @@ Attributes
   The link to the plugin homepage displayed on the plugin page in
   the [JetBrains Marketplace](https://plugins.jetbrains.com).
 - `require-restart` _(optional)_<br/>
+  The boolean value determining whether the plugin installation, update, or uninstallation requires an IDE restart
+  (see [Dynamic Plugins](dynamic_plugins.md) for details).<br/>
+  Default value: `false`.
+- `package` _(optional)_<br/>
+  Defines a JVM package where all module's classes are located.
+  Packages are included recursively, for example, `com.example` implies `com.example.sub`.
+  
+  If a package is specified, then all module [dependencies](#idea-plugin__dependencies) of the plugin must also specify a package, and it must be
+  different. For example, if `com.example` is set for the main plugin descriptor, `com.example` cannot be used for any
+  module dependency.
+- `dependent-on-core` _(optional)_<br/>
 
-    The boolean value determining whether the plugin installation, update, or uninstallation requires an IDE restart
-    (see [Dynamic Plugins](dynamic_plugins.md) for details).<br/>
-    Default value: `false`.
+    Determines whether the main classloader of the core plugin is used as the parent classloader for the current content module.
+    If set to `false`, the Java platform classloader is used as the parent classloader.
+    
+    The attribute is effective only for content modules in the core (`com.intellij`) plugin.<br/>
+    Default value: `true`.
 
 Children
 :
   - [`<actions>`](#idea-plugin__actions)
   - [`<applicationListeners>`](#idea-plugin__applicationListeners)
   - [`<change-notes>`](#idea-plugin__change-notes)
+  - [`<content>`](#idea-plugin__content)
+  - [`<dependencies>`](#idea-plugin__dependencies)
   - [`<depends>`](#idea-plugin__depends)
   - [`<description>`](#idea-plugin__description)
   - [`<extensionPoints>`](#idea-plugin__extensionPoints)
@@ -118,12 +144,14 @@ Children
   - [`<id>`](#idea-plugin__id)
   - [`<idea-version>`](#idea-plugin__idea-version)
   - [`<incompatible-with>`](#idea-plugin__incompatible-with)
+  - [`<module>`](#idea-plugin__module)
   - [`<name>`](#idea-plugin__name)
   - [`<product-descriptor>`](#idea-plugin__product-descriptor)
   - [`<projectListeners>`](#idea-plugin__projectListeners)
   - [`<resource-bundle>`](#idea-plugin__resource-bundle)
   - [`<vendor>`](#idea-plugin__vendor)
   - [`<version>`](#idea-plugin__version)
+  - [`<xi:include>`](#idea-plugin__xi:include)
   - [`<application-components>`](#idea-plugin__application-components)  ![Deprecated][deprecated]
   - [`<module-components>`](#idea-plugin__module-components)  ![Deprecated][deprecated]
   - [`<project-components>`](#idea-plugin__project-components)  ![Deprecated][deprecated]
@@ -156,15 +184,40 @@ Default value
 Example
 :
   ```xml
-  <id>com.company.framework</id>
+  <id>com.example.framework</id>
   ```
+
+### `module`
+{#idea-plugin__module}
+
+Defines the current plugin's alias.
+
+The alias can be used instead of the plugin [ID](#idea-plugin__id) in [`depends`](#idea-plugin__depends)
+or [`dependencies/plugin@id`](#idea-plugin__dependencies__plugin__id).
+
+Aliases are usually added to core plugins and work as markers of the corresponding IDEs.
+For example, `com.intellij.modules.ruby-capable` alias is declared in core plugins for IntelliJ IDEA Ultimate and RubyMine,
+and the Ruby plugin has a dependency on that alias.
+It makes the Ruby plugin compatible with IntelliJ IDEA Ultimate and RubyMine only and prevents it from being installed in other IDEs.
+
+Aliases can be also used for compatibility reasons in regular plugins and modules.
+
+Avoid adding new aliases and using them for other reasons.
+
+
+
+Attributes
+:
+- `value` _(**required**)_<br/>
+
+    The alias value. It must be unique.
 
 ### `name`
 {#idea-plugin__name}
 
 <tldr>
 
-**Reference:** [JetBrains Marketplace: Plugin Name](https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name)
+**Reference:** [JetBrains Marketplace: Plugin Name](https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name)
 
 </tldr>
 
@@ -233,11 +286,12 @@ Attributes
 - `code` _(**required**)_<br/>
   The plugin product code used in the JetBrains Sales System.
   The code must be agreed with JetBrains in advance and follow
-  [the requirements](https://plugins.jetbrains.com/docs/marketplace/obtain-a-product-code-from-jetbrains.html).
+  [the requirements](https://plugins.jetbrains.com/docs/marketplace/add-required-parameters.html).
 - `release-date` _(**required**)_<br/>
   Date of the major version release in the `YYYYMMDD` format.
 - `release-version` _(**required**)_<br/>
-  A major version in a special number format.
+  A major version in a specific number format, for example, `20242` for the 2024.2 major release.<br/>
+  See [`release-version` constraints](https://plugins.jetbrains.com/docs/marketplace/versioning-of-paid-plugins.html#release-version-constraints) for more details.
 - `optional` _(optional)_<br/>
   The boolean value determining whether the plugin is
   a [Freemium](https://plugins.jetbrains.com/docs/marketplace/freemium.html) plugin.<br/>
@@ -295,7 +349,7 @@ Examples
 
 <tldr>
 
-**Reference:** [JetBrains Marketplace: Contacts and Resources](https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#contacts-and-resources)
+**Reference:** [JetBrains Marketplace: Contacts and Resources](https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#contacts-and-resources)
 
 </tldr>
 
@@ -337,7 +391,7 @@ Examples
 
 <tldr>
 
-**Reference:** [JetBrains Marketplace: Plugin Description](https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description)
+**Reference:** [JetBrains Marketplace: Plugin Description](https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description)
 
 </tldr>
 
@@ -376,7 +430,7 @@ Example
 
 <tldr>
 
-**Reference:** [JetBrains Marketplace: Change Notes](https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#change-notes)
+**Reference:** [JetBrains Marketplace: Change Notes](https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#change-notes)
 
 </tldr>
 
@@ -479,6 +533,66 @@ Examples
     </depends>
     ```
 
+### `dependencies`
+{#idea-plugin__dependencies}
+
+Defines the dependencies of the module.
+
+A dependency from an `optional` or `on-demand`
+[content](#idea-plugin__content) [module](#idea-plugin__content__module)
+to the main module of the containing plugin is added automatically.
+
+Circular dependencies aren't allowed: if a set of modules forms a dependency cycle, plugins which contain modules
+from the cycle will fail to load.
+
+
+Children
+:
+  - [`<module>`](#idea-plugin__dependencies__module)
+  - [`<plugin>`](#idea-plugin__dependencies__plugin)
+
+#### `module`
+{#idea-plugin__dependencies__module}
+
+A dependency on another module.
+
+
+
+Attributes
+:
+- `name` _(**required**)_<br/>
+
+    The name of the module to depend on.
+
+Example
+:
+  ```xml
+  <dependencies>
+    <module name="com.example.core"/>
+  </dependencies>
+  ```
+
+#### `plugin`
+{#idea-plugin__dependencies__plugin}
+
+Declares a dependency on the main module of another plugin.
+
+
+
+Attributes
+:
+- `id` _(**required**)_<br/>
+
+    The [ID](#idea-plugin__id) or [alias](#idea-plugin__module) of the plugin to depend on.
+
+Example
+:
+  ```xml
+  <dependencies>
+    <plugin id="com.example.plugin.id"/>
+  </dependencies>
+  ```
+
 ### `incompatible-with`
 {#idea-plugin__incompatible-with}
 
@@ -486,24 +600,115 @@ Examples
 
 <tldr>
 
-**Reference:** [Declaring Incompatibility with Module](plugin_compatibility.md#declaring-incompatibility-with-module)
+**Reference:** [Declaring Incompatibility with Plugin](plugin_compatibility.md#declaring-incompatibility-with-module)
 
 </tldr>
 
-Declares incompatibility with a provided module.
+The [ID](#idea-plugin__id) or [alias](#idea-plugin__module){internal} of the plugin the current plugin is incompatible with.
+The plugin is not loaded if the incompatible plugin is installed in the current IDE.
 
 {style="narrow"}
 Required
 : no; ignored in an [additional config file](#additional-plugin-configuration-files)
 
 
+Examples
+:
+- Incompatibility with the Java plugin:
+    ```xml
+        <incompatible-with>
+          com.intellij.java
+        </incompatible-with>
+    ```
+- Incompatibility with the AppCode plugin referenced via its alias:
+    ```xml
+        <incompatible-with>
+          com.intellij.modules.appcode.ide
+        </incompatible-with>
+    ```
+
+### `content`
+{#idea-plugin__content}
+
+Defines the content modules of the plugin.
+
+The module which contains the plugin descriptor (<path>plugin.xml</path>) is included implicitly.
+
+{style="narrow"}
+Required
+: no
+
+Children
+:
+  - [`<module>`](#idea-plugin__content__module)
+
 Example
 :
   ```xml
-  <incompatible-with>
-    com.intellij.modules.appcode.ide
-  </incompatible-with>
+  <content>
+    <module name="com.example.core" loading="required"/>
+    <module name="com.example.git"/>
+    <module name="com.example.i18n"/>
+  </content>
   ```
+
+#### `module`
+{#idea-plugin__content__module}
+
+A content module to include in the plugin.<br/>
+Content modules contain components implementing the plugin functionality.
+Each content module's components are loaded with its own classloader (unless overridden with
+`loading="embedded"`).
+
+{style="narrow"}
+Required
+: no
+
+
+Attributes
+:
+- `name` _(**required**)_<br/>
+  The name of a JPS module to include in the plugin.
+- `loading`
+  Specifies when a content module of a plugin should be loaded.
+  Allowed values:
+  - `required` - the module is a required part of the plugin.
+    If the module cannot be loaded because some of its dependencies aren't available, the whole plugin isn't
+    loaded, and an error is shown to the user.
+  - `embedded` - the same as `required`, but also puts the module's classes to the main plugin JAR and loads them
+    using the main plugin classloader.
+    **This is an internal temporary option added to simplify the migration of some existing plugins.
+    For new modules, use `required` instead.**
+  - `optional` - the module is an optional part of the plugin.
+    If the module cannot be loaded, it is skipped and doesn't prevent other modules from the plugin from being
+    loaded.
+  - `on-demand` - the module is used by other modules of the plugin and doesn't provide user-visible functionality
+    itself.
+    The module is loaded if and only if another `required` or `optional` module, which depends on it, is loaded.
+    **This option isn't implemented yet and currently behaves the same way as `optional`.**<br/>
+  Default value: `optional`.
+- `os`
+
+    Allows restricting the loading of a module to specific operating system.
+    Supported values:
+    - `freebsd`
+    - `linux`
+    - `mac`
+    - `unix`
+    - `windows`
+    
+    For example, `os="windows"` allows the module to load only on Windows.
+
+Examples
+:
+- A module with the implicit `optional` `loading` behavior:
+    ```xml
+    <module name="com.example.core"/>
+    ```
+- A required module that will fail to load the plugin if it is unavailable:
+    ```xml
+    <module name="com.example.core" loading="required"/>
+    ```
 
 ### `extensions`
 {#idea-plugin__extensions}
@@ -531,28 +736,79 @@ Attributes
 
 Children
 :
-The children elements are registrations of the extension points defined by
-[`<extensionPoint>`](#idea-plugin__extensionPoints__extensionPoint) elements. Extension elements names follow the EPs names
-defined by `name`
+The children elements are registrations of instances
+of [extension points](#idea-plugin__extensionPoints__extensionPoint) provided by the IntelliJ Platform or plugins.
+<br/>
+An extension element name is defined by its extension point via
+`name`
 or `qualifiedName` attributes.
+<br/>
+An extension element attributes depend on the extension point implementation, but all extensions support basic attributes:
+`id`, `order`,
+and `os`.
 
 
 Examples
 :
-- Extensions' declaration with the default namespace:
-```xml
-<extensions defaultExtensionNs="com.intellij">
-  <applicationService
-      serviceImplementation="com.example.Service"/>
-</extensions>
-```
+- Extensions' declaration with a default namespace:
+    ```xml
+    <extensions defaultExtensionNs="com.intellij">
+      <applicationService
+          serviceImplementation="com.example.Service"/>
+    </extensions>
+    ```
 - Extensions' declaration using the fully qualified extension name:
-```xml
-<extensions>
-  <com.example.vcs.myExtension
-      implementation="com.example.MyExtension"/>
-</extensions>
-```
+    ```xml
+    <extensions>
+      <com.example.vcs.myExtension
+          implementation="com.example.MyExtension"/>
+    </extensions>
+    ```
+
+#### `*`
+{#idea-plugin__extensions__*}
+
+An extension instance registered under [`<extensions>`](#idea-plugin__extensions).
+
+Listed attributes are basic attributes available for all extensions.
+The list of actual attributes can be longer depending on the extension point implementation.
+
+
+
+Attributes
+:
+- `id` _(optional)_<br/>
+  Unique extension identifier.
+  It allows for referencing an extension in other attributes, for example, in
+  `order`.
+  <br/>
+  To not clash with other plugins defining extensions with the same identifier,
+  consider prepending the identifier with a prefix related to the plugin [`<id>`](#idea-plugin__id) or 
+  [`<name>`](#idea-plugin__name), for example, `id="com.example.myplugin.myExtension"`.
+- `order` _(optional)_<br/>
+  Allows for ordering the extension relative to other instances of the same extension point.
+  Supported values:
+    - `first` - orders the extension as first.
+       It is not guaranteed that the extension will be the first if multiple extensions are defined as `first`.
+    - `last` - orders the extension as last.
+       It is not guaranteed that the extension will be the last if multiple extensions are defined as `last`.
+    - `before extension_id` - orders the extension before an extension with
+       the given `id`
+    - `after extension_id` - orders the extension after an extension with
+       the given `id`
+  <br/>
+  Values can be combined, for example, `order="after extensionY, before extensionX"`.
+- `os` _(optional)_<br/>
+
+    Allows restricting an extension to a given OS.
+    Supported values:
+      - `freebsd`
+      - `linux`
+      - `mac`
+      - `unix`
+      - `windows`
+    
+    For example, `os="windows"` registers the extension on Windows only.
 
 ### `extensionPoints`
 {#idea-plugin__extensionPoints}
@@ -572,6 +828,7 @@ Required
 Children
 :
   - [`<extensionPoint>`](#idea-plugin__extensionPoints__extensionPoint)
+  - [`<xi:include>`](#idea-plugin__extensionPoints__xi:include)
 
 #### `extensionPoint`
 {#idea-plugin__extensionPoints__extensionPoint}
@@ -594,26 +851,31 @@ Attributes
 :
 - `name` _(`name` or `qualifiedName` is **required**)_<br/>
   The extension point name that should be unique in the scope of the plugin, e.g., `myExtension`.
-  The fully qualified name of the extension point is built at runtime by prepending the value of the `name` attribute
-  with the plugin [`<id>`](#idea-plugin__id) + `.` prefix.
-  Only one of the `name` and `qualifiedName` attributes can be specified.<br/>
+  The fully qualified name of the extension point is built at runtime by prepending the value of the `name`
+  attribute with the plugin [`<id>`](#idea-plugin__id) + `.` prefix.<br/>
   Example: when the `name` is `myExtension` and plugin ID is `com.example.myplugin`, the fully qualified name of
-  the EP will be `com.example.myplugin.myExtension`.
+  the EP will be `com.example.myplugin.myExtension`.<br/>
+  Only one of the `name` and
+  `qualifiedName` attributes can be
+  specified.
 - `qualifiedName` _(`name` or `qualifiedName` is **required**)_<br/>
   The fully qualified name of the extension point.
   It should be unique between different plugins, and it is recommended to include a plugin ID to guarantee uniqueness,
-  e.g., `com.example.myplugin.myExtension`.
+  e.g., `com.example.myplugin.myExtension`.<br/>
   Only one of the `name` and `qualifiedName` attributes can be specified.
 - `interface` _(`interface` or `beanClass` is **required**)_<br/>
-  The fully qualified name of the interface to be implemented for extending the plugin's functionality.
+  The fully qualified name of the interface to be implemented for extending the plugin's functionality.<br/>
   Only one of the `interface` and `beanClass` attributes can be specified.
-  See [Extension Points](plugin_extension_points.md) for more
-  information.
 - `beanClass` _(`interface` or `beanClass` is **required**)_<br/>
-  The fully qualified name of the extension point bean class providing additional information to the plugin.
+  The fully qualified name of the extension point bean class providing additional information to the plugin.<br/>
+  The bean class specifies one or several properties annotated with the
+  [`@Attribute`](%gh-ic%/platform/util/src/com/intellij/util/xmlb/annotations/Attribute.java)
+  annotation.
+  Note that bean classes do not follow the JavaBean standard.
+  Implement
+  [`PluginAware`](%gh-ic%/platform/extensions/src/com/intellij/openapi/extensions/PluginAware.java)
+  to obtain information about the plugin providing the actual extension (see [Error Handling](plugin_extension_points.md#error-handling)).<br/>
   Only one of the `interface` and `beanClass` attributes can be specified.
-  See [Extension Points](plugin_extension_points.md) for more
-  information.
 - `dynamic` _(optional)_<br/>
   Boolean value defining whether the extension point meets the requirements to be
   [dynamic](plugin_extension_points.md#dynamic-extension-points),
@@ -623,11 +885,15 @@ Attributes
 
     The scope in which the [extension](plugin_extensions.md) is
     instantiated.
-    It is not recommended to use non-default values.
+    
     Allowed values:
       - `IDEA_APPLICATION` _(default)_
       - `IDEA_PROJECT`
       - `IDEA_MODULE` (**deprecated**)
+    
+    **It is strongly recommended not to introduce new project- and module-level extension points.**
+    If an extension point needs to operate on a `Project` or `Module` instance, declare an application-level extension
+    point and pass the instance as a method parameter.
 
 Children
 :
@@ -649,11 +915,11 @@ Attributes
 :
 - `tag` _(`tag` or `attribute` is **required**)_<br/>
   The name of the tag holding the fully qualified name of the class which parent type will be limited
-  by the type provided in the `implements` attribute.
+  by the type provided in the `implements` attribute.<br/>
   Only one of the `tag` and `attribute` attributes can be specified.
 - `attribute` _(`tag` or `attribute` is **required**)_<br/>
   The name of the attribute holding the fully qualified name of the class which parent type will be limited
-  by the type provided in the `implements` attribute.
+  by the type provided in the `implements` attribute.<br/>
   Only one of the `tag` and `attribute` attributes can be specified.
 - `implements` _(**required**)_<br/>
 
@@ -694,11 +960,63 @@ Example
   - `com.example.MyCustomType` must be a subtype of `com.example.ParentType`
   - `com.example.MyComparable` must be a subtype of `java.lang.Comparable`
 
+#### `xi:include`
+{#idea-plugin__extensionPoints__xi:include}
+
+Allows including extension points of another plugin descriptor in this descriptor with
+[XInclude](http://www.w3.org/2001/XInclude) standard.
+
+The inclusion of extension points is supported for internal purposes and shouldn't be used by third party plugins.
+
+{style="narrow"}
+Required
+: no
+
+
+Attributes
+:
+- `href` _(optional)_<br/>
+  Path of the plugin descriptor file to include `extensionPoints` content from.
+- `xpointer` _(optional)_<br/>
+    **_Deprecated since 2021.2_**: The `xpointer` attribute must be `xpointer(/idea-plugin/extensionPoints/*)` or not defined. 
+
+    Extensions points pointer to include.<br/>
+    Default value: `xpointer(/idea-plugin/extensionPoints/*)`.
+
+Children
+:
+  - [`<xi:fallback>`](#idea-plugin__extensionPoints__xi:include__xi:fallback)
+
+##### `xi:fallback`
+{#idea-plugin__extensionPoints__xi:include__xi:fallback}
+
+Indicates that including the specified file is optional.
+
+If the file referenced in `href` is not found and the `xi:fallback`
+element
+is missing, the plugin will fail to load.
+
+{style="narrow"}
+Required
+: no
+
+Example
+:
+  ```xml
+  <idea-plugin xmlns:xi="http://www.w3.org/2001/XInclude">
+    ...
+    <xi:include href="/META-INF/optional-plugin.xml">
+      <xi:fallback/>
+    </xi:include>
+    ...
+  </idea-plugin>
+  ```
+
 ### `resource-bundle`
 {#idea-plugin__resource-bundle}
 
 A resource bundle to be used with message key attributes in extension declarations and for
-[action and group localization](basic_action_system.md#localizing-actions-and-groups).
+[action and group localization](action_system.md#localizing-actions-and-groups).
 A single [`<idea-plugin>`](#idea-plugin) element can contain multiple `<resource-bundle>` elements.
 
 {style="narrow"}
@@ -717,7 +1035,7 @@ Example
 
 <tldr>
 
-**Reference:** [Actions](basic_action_system.md)
+**Reference:** [Actions](action_system.md)
 
 </tldr>
 
@@ -733,7 +1051,7 @@ Attributes
 - `resource-bundle` _(optional; available since 2020.1)_<br/>
 
     Defines the dedicated actions resource bundle.
-    See [Localizing Actions and Groups](basic_action_system.md#localizing-actions-and-groups)
+    See [Localizing Actions and Groups](action_system.md#localizing-actions-and-groups)
     for more details.
 
 Children
@@ -758,7 +1076,7 @@ Example
 
 <tldr>
 
-**Reference:** [Registering Actions in plugin.xml](basic_action_system.md#registering-actions-in-pluginxml)
+**Reference:** [Registering Actions in plugin.xml](action_system.md#registering-actions-in-pluginxml)
 
 </tldr>
 
@@ -772,14 +1090,15 @@ Required
 
 Attributes
 :
-- `id` _(**required**)_<br/>
+- `id` _(optional; defaults to the action class short name if not specified)_<br/>
   A unique action identifier.
-  The action identifier must be unique between different plugins.
-  Thus, it is recommended to prepend it with the value of the plugin [`<id>`](#idea-plugin__id).
+  It is recommended to specify the `id` attribute explicitly.<br/>
+  The action identifier must be unique across different plugins.
+  To ensure uniqueness, consider prepending it with the value of the plugin's [`<id>`](#idea-plugin__id).
 - `class` _(**required**)_<br/>
   The fully qualified name of the action implementation class.
 - `text` _(**required** if the action is not
-[localized](basic_action_system.md#localizing-actions-and-groups))_<br/>
+[localized](action_system.md#localizing-actions-and-groups))_<br/>
   The default long-version text to be displayed for the action (tooltip for toolbar button or text for menu item).
 - `description` _(optional)_<br/>
   The text which is displayed in the status bar when the action is focused.
@@ -977,7 +1296,7 @@ Examples
 
 <primary-label ref="2020.1"/>
 
-Defines an alternate version of the text for the menu action or group.
+Defines an alternate menu action or group text depending on context: menu location, toolbar, and other.
 
 {style="narrow"}
 Supported
@@ -1004,9 +1323,22 @@ Examples
 :
 - Explicitly overridden text:
     ```xml
-    <override-text
-        place="MainMenu"
-        text="Collect _Garbage"/>
+    <!--
+    Default action text:
+    "Garbage Collector: Collect _Garbage"
+    -->
+    <action
+        class="com.example.CollectGarbage"
+        text="Garbage Collector: Collect _Garbage"
+        ...>
+      <!--
+      Alternate text displayed anywhere in the main menu:
+      "Collect _Garbage"
+      -->
+      <override-text
+          place="MainMenu"
+          text="Collect _Garbage"/>
+    </action>
     ```
 - Overridden text reused from the `MainMenu` place:
     ```xml
@@ -1032,7 +1364,7 @@ Required
 Attributes
 :
 - `key` _(`key` or `text` is **required**)_<br/>
-  The key of the synonym text provided in a message bundle.
+  The key of the synonym text provided in a [message bundle](action_system.md#localizing-actions-and-groups).
 - `text` _(`key` or `text` is **required**)_<br/>
 
     The synonym text.
@@ -1075,7 +1407,7 @@ Example
 
 <tldr>
 
-**Reference:** [Grouping Actions](basic_action_system.md#grouping-actions)
+**Reference:** [Grouping Actions](action_system.md#grouping-actions)
 
 </tldr>
 
@@ -1100,7 +1432,7 @@ Attributes
   [`DefaultActionGroup`](%gh-ic%/platform/platform-api/src/com/intellij/openapi/actionSystem/DefaultActionGroup.java)
   is used.
 - `text` _(**required** if the `popup` is `true` and the group is not
-[localized](basic_action_system.md#localizing-actions-and-groups))_<br/>
+[localized](action_system.md#localizing-actions-and-groups))_<br/>
   The default long-version text to be displayed for the group (text for the menu item showing the submenu).
 - `description` _(optional)_<br/>
   The text which is displayed in the status bar when the group is focused.
@@ -1224,7 +1556,7 @@ Attributes
   Separator text is displayed only in specific contexts such as popup menus, toolbars, etc.
 - `key` _(optional)_<br/>
 
-    The message key for the separator text.
+    The [message key](action_system.md#localizing-actions-and-groups) for the separator text.
     The message bundle for use should be registered via the `resource-bundle` attribute of
     the [`<actions>`](#idea-plugin__actions) element.
     The attribute is ignored if the `text` attribute is specified.
@@ -1356,6 +1688,90 @@ Children
 :
   - [`<listener>`](#idea-plugin__applicationListeners__listener)
 
+### `xi:include`
+{#idea-plugin__xi:include}
+
+Allows including content of another plugin descriptor in this descriptor with
+[XInclude](http://www.w3.org/2001/XInclude) standard.
+
+{style="narrow"}
+Required
+: no
+
+
+Attributes
+:
+- `href` _(optional)_<br/>
+  Path of the plugin descriptor file to include.
+- `xpointer` _(optional)_<br/>
+    **_Deprecated since 2021.2_**: The `xpointer` attribute must be `xpointer(/idea-plugin/*)` or not defined. 
+
+    Elements pointer to include.<br/>
+    Default value: `xpointer(/idea-plugin/*)`.
+
+Children
+:
+  - [`<xi:fallback>`](#idea-plugin__xi:include__xi:fallback)
+
+Example
+:
+  Given a plugin descriptor:
+  
+  ```xml
+  <idea-plugin xmlns:xi="http://www.w3.org/2001/XInclude">
+    <id>com.example.myplugin</id>
+    <name>Example</name>
+    <xi:include href="/META-INF/another-plugin.xml"/>
+    ...
+  </idea-plugin>
+  ```
+  
+  and <path>/META-INF/another-plugin.xml</path>:
+  
+  ```xml
+  <idea-plugin>
+    <extensions>...</extensions>
+    <actions>...</actions>
+  </idea-plugin>
+  ```
+  
+  The effective plugin descriptor loaded to memory will contain the following elements:
+  
+  ```xml
+  <idea-plugin xmlns:xi="http://www.w3.org/2001/XInclude">
+    <id>com.example.myplugin</id>
+    <name>Example</name>
+    <extensions>...</extensions>
+    <actions>...</actions>
+    ...
+  </idea-plugin>
+  ```
+
+#### `xi:fallback`
+{#idea-plugin__xi:include__xi:fallback}
+
+Indicates that including the specified file is optional.
+
+If the file referenced in `href` is not found and the `xi:fallback`
+element
+is missing, the plugin will fail to load.
+
+{style="narrow"}
+Required
+: no
+
+Example
+:
+  ```xml
+  <idea-plugin xmlns:xi="http://www.w3.org/2001/XInclude">
+    ...
+    <xi:include href="/META-INF/optional-plugin.xml">
+      <xi:fallback/>
+    </xi:include>
+    ...
+  </idea-plugin>
+  ```
+
 ### `application-components`
 {#idea-plugin__application-components collapsible="true" initial-collapse-state="collapsed"}
 
@@ -1411,6 +1827,7 @@ Children
   - [`<interface-class>`](#idea-plugin__application-components__component__interface-class)  ![Deprecated][deprecated]
   - [`<loadForDefaultProject>`](#idea-plugin__application-components__component__loadForDefaultProject)  ![Deprecated][deprecated]
   - [`<option>`](#idea-plugin__application-components__component__option)  ![Deprecated][deprecated]
+  - [`<skipForDefaultProject>`](#idea-plugin__application-components__component__skipForDefaultProject)  ![Deprecated][deprecated]
 
 ##### `implementation-class`
 {#idea-plugin__application-components__component__implementation-class}
@@ -1509,6 +1926,29 @@ Attributes
 
 If present, the component is instantiated also for the default project. It takes effect only when used inside
 [`<project-components>`](#idea-plugin__project-components) element.
+
+{style="narrow"}
+Deprecated
+:
+since 2020.1
+
+{style="narrow"}
+Required
+: no
+
+##### `skipForDefaultProject`
+{#idea-plugin__application-components__component__skipForDefaultProject}
+
+> Do not use it in new plugins.
+> See [Components](plugin_components.md) for the migration guide.
+>
+{style="warning"}
+
+In the past, if present, the component was not loaded for the default project.
+
+Currently, project components aren't loaded in the default project by default, so this element has no effect.
+Use [`<loadForDefaultProject>`](#idea-plugin__application-components__component__loadForDefaultProject)
+if it is required to load a component in the default project.
 
 {style="narrow"}
 Deprecated
